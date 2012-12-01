@@ -10,3 +10,6 @@ This will lastfm scrobble all tracks in your rdio collection.
 - Run scrobble_all_rdio_artists
 - You can optionally serialize your Rdio auth token into
   .rdio_auth_token or pass this file as your first argument
+
+It will first authorize the app for rd.io, then for last.fm, and then
+go through all your artists' tracks.
