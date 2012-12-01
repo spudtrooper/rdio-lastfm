@@ -1,0 +1,12 @@
+This will lastfm scrobble all tracks in your rdio collection.
+
+- Install the rdio gem
+- Install the lastfm gem
+- Get an rdio API account
+- Get an lastfm API account
+- Copy the rdio_creds.example and lastfm_creds.example to
+  rdio_creds.rb and lastfm_creds.rb respectively and fill those in
+  with your Rdio and LastFM API credentials.
+- Run scrobble_all_rdio_artists
+- You can optionally serialize your Rdio auth token into
+  .rdio_auth_token or pass this file as your first argument

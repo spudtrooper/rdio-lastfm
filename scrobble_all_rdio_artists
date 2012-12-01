@@ -1,0 +1,149 @@
+#!/usr/bin/env ruby
+#
+# Adds all your songs from Rdio to LastFm.
+#
+# - Install the rdio gem
+# - Install the lastfm gem
+# - Get an rdio API account
+# - Get an lastfm API account
+# - Copy the rdio_creds.example and lastfm_creds.example to
+#   rdio_creds.rb and lastfm_creds.rb respectively and fill those in
+#   with your Rdio and LastFM API credentials.
+# - Run scrobble_all_rdio_artists
+# - You can optionally serialize your Rdio auth token into
+#   .rdio_auth_token or pass this file as your first argument
+#
+
+require 'rubygems'
+require 'rdio'
+require 'lastfm'
+require 'digest/md5'
+
+require 'lastfm_creds'
+require 'rdio_creds'
+
+# Optional
+ACCESS_TOKEN_FILE = '.rdio_access_token'
+
+def log(msg)
+  STDERR.puts msg
+  STDERR.flush
+end
+
+def auth_rdio(f)
+  log 'auth_rdio'
+  if  File.exist? f
+    token = Marshal.load File.new f
+    if token
+      begin
+        Rdio.init_with_token token
+      rescue
+      end
+    end
+  else
+    Rdio.init RDIO_API_KEY,RDIO_API_SECRET
+  end
+  return Rdio::User.current
+end
+
+def auth_lastfm
+  log 'auth_lastfm'
+  api_key = LASTFM_API_KEY
+  lastfm = Lastfm.new api_key, LASTFM_API_SECRET
+  token = lastfm.auth.get_token
+  url = "http://www.last.fm/api/auth/?api_key=#{api_key}&token=#{token}"
+  system 'open', url
+  log 'Hit any key once you\'re ready...'
+  STDIN.gets
+  lastfm.session = lastfm.auth.get_session(:token => token)['key']
+  return lastfm
+end
+
+def process_artist(artist,lastfm,user)
+  begin
+    tracks = user.tracks_for_artist_in_collection artist
+    tracks.each do |track|
+      log 'Scrobbling ' + artist.name + ':' + track.name
+      lastfm.track.scrobble(:artist => artist.name, 
+                            :track => track.name)
+    end
+  rescue Exception => e
+    log e
+  end
+end
+
+def main(args)
+
+  # First argument is either the rdio token file
+  rdio_token_file = ACCESS_TOKEN_FILE
+  if not args.empty?
+    rdio_token_file = args.shift
+  end
+
+  # Save all the argument, because we use gets for the PIN
+  argv = []
+  argv << args.shift while not args.empty?
+
+  user = auth_rdio
+  lastfm = auth_lastfm
+
+  log 'Starting...'
+
+  # Turn off the warning for not finding symbols...It's quite annoying
+  Rdio::log_couldnt_find_symbols = false
+  
+  artists = []
+  
+  if argv.empty?
+    #
+    # Collect all the artists for this user for no args
+    #
+    start = 0
+    count = 10
+    while true
+      all = user.artists_in_collection start,count
+      next if not all or all.empty?
+      puts "Found #{all.length} artists, have #{artists.length}"
+      all.each do |artist|
+        process_artist artist,lastfm,user
+      end
+      start += count
+    end
+  else
+    #
+    # Otherwise, we assume the arguments are artist URLs
+    #
+    argv.each do |arg|
+      all = []
+      begin
+        artist = Rdio::Artist.from_url arg
+        all << artist if artist
+      rescue Exception => e
+        log "Couldn't get artist #{arg} from url"
+        log e
+      end
+      if all.empty?
+        begin
+          artist = Rdio::Artist.from_short_code arg
+          all << artist if artist
+        rescue Exception => e
+          log "Couldn't get artist #{arg} from short code"
+          log e
+        end
+      end
+      if all.empty?
+        begin
+          all = Rdio::Artist.search arg,nil,['name']
+        rescue Exception => e
+          log e
+        end
+      end
+      all.each do |artist|
+        process_artist artist,lastfm,user
+      end
+      puts "Found #{all.length} artists"
+    end
+  end  
+end
+
+main ARGV
