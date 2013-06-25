@@ -40,7 +40,7 @@ def auth_rdio(f)
       end
     end
   else
-    require 'rdio_creds'
+    require './rdio_creds'
     Rdio.init RDIO_API_KEY,RDIO_API_SECRET
   end
   return Rdio::User.current
@@ -48,7 +48,7 @@ end
 
 def auth_lastfm
   log 'auth_lastfm'
-  require 'lastfm_creds'
+  require './lastfm_creds'
   api_key = LASTFM_API_KEY
   lastfm = Lastfm.new api_key, LASTFM_API_SECRET
   token = lastfm.auth.get_token
